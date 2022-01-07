@@ -1,0 +1,472 @@
+---
+title: "MysecondProject"
+author: "JOSE IGNACIO SORDO SIERPE"
+date: "7/1/2022"
+output: 
+  html_document: 
+    number_sections: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Introduction
+As the second project of the Edx Data Science Capstone course called “Choose Your Own”, I am going to choose the data set called PimaIndiansDiabetes
+
+This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases, and is available at https://www.kaggle.com/uciml/pima-indians-diabetes-database
+
+This dataset tries to predict the probability that a patient has diabetes or not based on certain diagnostic measures included in the dataset.
+
+There are several restrictions in the database being taken in this case, that all patients have to be female, over 21 years of age and of Pima Indian descent.
+
+In the first place we will make a statistical and graphic description of the data, I will analyze if there are statistically significant differences between the two groups (positive and negative) in each of the predictor variables.
+
+Supervised learning machine learning techniques will be applied using 7 different binary classification algorithms and in the results phase we will stick with those that achieve better accuracy.
+
+## 2. Methodology and General Description
+
+First we will load the data set and the necessary libraries for the project.
+
+
+```{r}
+# load libraries
+library(mlbench)
+library(caret)
+library(Hmisc)
+library(randomForest)
+library(Matrix)
+library(glmnet)
+library (pROC)
+library(ROCR)
+library(funModeling)
+library(dplyr)
+library(smotefamily)
+library(mlbench)
+library(ggpubr)
+library(onewaytests)
+
+# load data
+data(PimaIndiansDiabetes)
+# rename dataset to keep code below generic
+dataset <- PimaIndiansDiabetes
+```
+
+The methodology will follow the following successive steps:
+1.- Description of the data set.
+2.- Obtaining the statistical descriptions.
+3.- Numerical and graphic analysis of the variables to check if they follow a normal distribution.
+4.- Analysis of differences in means and variances to check if there are statistically significant        differences between the variables.
+5.- Generate a partition of 70% of the sample for training, reserving 30% for validation.
+6.- A cross validation will be applied to the 70% partition.
+7.- Training of the different algorithms.
+
+
+### 2.1. Dataset Description
+
+```{r}
+#dataset description.
+
+head(dataset)
+```
+
+The data set is composed of 768 observations with 9 different variables.
+The variables are:
+Pregnant --- Number of times pregnant
+Glucose --- Plasma glucose concentration a 2 hours in an oral glucose tolerance test
+Pressure --- Diastolic blood pressure (mm Hg)
+Triceps --- Triceps skin fold thickness (mm)
+Insulin --- 2-Hour serum insulin (mu U/ml)
+Mass --- Body mass index (weight in kg/(height in m)^2)
+Pedigree --- Diabetes pedigree function
+Age --- Age (years)
+Diabetes --- Class variable (positive or negative)
+
+
+### 2.2. Descriptive Statistical
+
+```{r}
+# cuantitative variables
+df = dataset[,c(1:8)] 
+
+# statitical descriptives
+estadisticaDescriptiva <- t(do.call(data.frame, 
+                                    list(mean = apply(df, 2, mean),
+                                         Desv.Estandar = apply(df, 2, sd),
+                                         Mediana = apply(df, 2, median),
+                                         IQR = apply(df,2,IQR),
+                                         Min = apply(df, 2, min),
+                                         Max = apply(df, 2, max),
+                                         Rango = apply(df, 2,max)-apply(df, 2,min),
+                                         Cuartil1 = apply(df,2,quantile,probs = c(0.25)),
+                                         Cuartil3 = apply(df,2,quantile,probs = c(0.75)),
+                                         N = apply(df,2,length),
+                                         ErrorEstandar = apply(df,2,sd)/sqrt(apply(df,2,length)),
+                                         IC95MediaLower = apply(df,2,mean)-1.96*apply(df,2,sd)/sqrt(apply(df,2,length)),
+                                         IC95MediaUpper = apply(df,2,mean)+1.96*apply(df,2,sd)/sqrt(apply(df,2,length)),
+                                         Varianza = apply(df, 2, var)
+                                                                             )))
+estadisticaDescriptiva
+```
+### 2.3. Analysys Normal Distribution
+a) Pregnant
+```{r}
+# Normality Test "Pregnant Vairable"
+
+df <- dataset [1]
+dvector= df$pregnant
+shapiro.test(dvector) 
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+
+Graphycally:
+
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT pregnant") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [1]
+dvector= df$pregnant
+```
+b) Glucose
+
+```{r}
+# Normality Test "Glucose Vairable"
+
+df <- dataset [2]
+dvector= df$glucose
+shapiro.test(dvector) 
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT glucose") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [2]
+dvector= df$glucose
+```
+c) Pressure
+
+```{r}
+# Normality Test "Pressure Variable"
+
+df <- dataset [3]
+dvector= df$pressure
+shapiro.test(dvector) 
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT pressure") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [3]
+dvector= df$pressure
+```
+d) Triceps
+```{r}
+# Normality Test "Triceps Variable"
+
+df <- dataset [4]
+dvector= df$triceps
+shapiro.test(dvector) 
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT triceps") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [4]
+dvector= df$triceps
+```
+e) Insulin
+```{r}
+# Normality Test "Insulin Variable"
+
+df <- dataset [5]
+dvector= df$insulin
+shapiro.test(dvector)
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT insulin") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [5]
+dvector= df$insulin
+```
+f) Mass
+```{r}
+# Normality Test "Mass Variable"
+
+df <- dataset [6]
+dvector= df$mass
+shapiro.test(dvector)
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT mass") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [6]
+dvector= df$mass
+
+```
+g) Pedigree
+```{r}
+# Normality Test "Pedigree Variable"
+
+df <- dataset [7]
+dvector= df$pedigree
+shapiro.test(dvector)
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT pedigree") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [7]
+dvector= df$pedigree
+```
+h) Age
+```{r}
+# Normality Test "Pedigree Variable"
+
+df <- dataset [8]
+dvector= df$age
+shapiro.test(dvector)
+```
+For a 95% confidence interval the variable does not follow a normal distribution
+Graphycally:
+```{r}
+#...hacemos el qqplot
+name1 <- names(df)
+ggqqplot(df, x = names(df),color = "#FF6666",add.params = list(color = "black"))+
+  xlab("Normal Distribution") + ylab("Real quartiles") +
+  theme_minimal() +
+  ggtitle("QQ PLOT age") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+df <- dataset [8]
+dvector= df$age
+```
+### 2.4. Analysis of statistically significant differences.
+
+As the variables do not follow a normal distribution, we will use non-parametric techniques.
+
+a) Brown-Forsythe Test, to chek if there is equility of variances
+
+```{r}
+bf.test(pregnant ~ diabetes, data = dataset)
+bf.test(glucose ~ diabetes, data = dataset)
+bf.test(pressure~ diabetes, data = dataset)
+bf.test(triceps ~ diabetes, data = dataset)
+bf.test(insulin ~ diabetes, data = dataset)
+bf.test(mass ~ diabetes, data = dataset)
+bf.test(pedigree ~ diabetes, data = dataset)
+bf.test(age~ diabetes, data = dataset)
+```
+There are difference statistically significant excepto in pression variable
+
+b) Mann-Whitney Test to check if there are equility of means.
+```{r}
+wilcox.test(pregnant~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(glucose~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(pressure~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(triceps~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(insulin~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(mass~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(pedigree~ diabetes, data = dataset, paired=FALSE)
+wilcox.test(age~ diabetes, data = dataset, paired=FALSE)
+```
+Only the insulin variable does not present statistically significant difference in equality of means for a 95% confidence interval.
+
+As there are no variables that do not present statistically significant differences in both tests, we will use all the variables in the models.
+
+### 2.5. Generate a partition of 70% of the sample for training, reserving 30% for validation.
+
+
+```{r}
+
+# define an 70%/30train/test split of the dataset
+split=0.70
+
+trainIndex <- createDataPartition(dataset$diabetes, p=split, list=FALSE)
+data_train <- dataset[ trainIndex,]
+data_test  <- dataset[-trainIndex,]
+
+```
+The training sample is made up of 538 observations and the test sample of 230 observations.
+
+### 2.6. Cross validation will be applied to the 70% partition
+
+```{r}
+# set-up test options
+control <- trainControl(method="cv", number=5)
+seed <- (338)
+metric <- "Accuracy"
+
+```
+### 2.7. Training algorithms
+
+I am going to train the following algorithms:
+a) Linear Discriminant Analysis
+b) Logistic Regression
+c) Knn
+d) CART
+e) Bagged CART
+f) Random Forest
+g) Stochastic Gradient Boosting
+
+
+```{r}
+#  train algorithms
+
+# Linear Discriminant Analysis
+set.seed(seed)
+fit.lda <- train(diabetes~., data=data_train, method="lda", metric=metric, preProc=c("center", "scale"), trControl=control)
+# Logistic Regression
+set.seed(seed)
+fit.glm <- train(diabetes~., data=data_train, method="glm", metric=metric, trControl=control)
+# kNN
+set.seed(seed)
+fit.knn <- train(diabetes~., data=data_train, method="knn", metric=metric, preProc=c("center", "scale"), trControl=control)
+# CART
+set.seed(seed)
+fit.cart <- train(diabetes~., data=data_train, method="rpart", metric=metric, trControl=control)
+# Bagged CART
+set.seed(seed)
+fit.treebag <- train(diabetes~., data=data_train, method="treebag", metric=metric, trControl=control)
+# Random Forest
+set.seed(seed)
+fit.rf <- train(diabetes~., data=data_train, method="rf", metric=metric, trControl=control)
+# Stochastic Gradient Boosting (Generalized Boosted Modeling)
+set.seed(seed)
+fit.gbm <- train(diabetes~., data=data_train, method="gbm", metric=metric, trControl=control, verbose=FALSE)
+
+# Compare algorithms
+results <- resamples(list(lda=fit.lda, logistic=fit.glm,
+	 knn=fit.knn, cart=fit.cart, 
+	bagged_CART=fit.treebag, rf=fit.rf, Stochastic_Gradient_Boosting=fit.gbm))
+# Table comparison
+summary(results)
+
+```
+I will do a doplot to see the results of the algorithm training graphically
+
+```{r}
+# Dot-plot comparison
+dotplot(results)
+```
+
+# 3. Resultados
+
+We make the confusion matrix for each of the algorithms on the test sample
+
+
+
+```{r}
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Linear Discriminant Analysis")
+pred <- predict(newdata=data_test,fit.lda)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Linear Logistic Regression")
+pred <- predict(newdata=data_test,fit.glm)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Knn")
+pred <- predict(newdata=data_test,fit.knn)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Cart")
+pred <- predict(newdata=data_test,fit.cart)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Bagged Cart")
+pred <- predict(newdata=data_test,fit.treebag)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Random Forest")
+pred <- predict(newdata=data_test,fit.rf)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+# Matriz de confusion con datos de validacion
+print("Accuracy Test Data Stochastic Gradient Boosting")
+pred <- predict(newdata=data_test,fit.gbm)
+real <- as.factor(data_test$diabetes)
+cm_train_tot <- caret::confusionMatrix(data=pred,reference=real)
+print(cm_train_tot)
+
+
+```
+## 4.- Final Conclusions and limitations
+
+As final conclusions, it is worth highlighting the good performance of all the models in the TRUE POSITIVE RATE (in this case the detection of negative cases of diabetes), exceeding in all cases the 80% success rate, which gives great security in the negative prediction of diabetes.
+
+While the specificity in some cases is not as high as would be desired. This may be due to the fact that the dataset is umbalanced, with negative cases that exceed 3 times the rate of positive cases.
+
+For future lines of research, the datasets could be balanced using artificial sampling techniques in order to balance the predictions. Another possibility would be with the use of the ROC curve, to estimate a different cut-off point.
+
+
